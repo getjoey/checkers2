@@ -1,0 +1,201 @@
+
+
+<head>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<title>Checkers</title>
+</head>
+
+<body>
+
+
+	<div style="text-align: center;">
+        <p id="turn" style="font-size : 30px;">Blacks Turn</p>
+        <p id="score" style="font-size : 24px;">White = 0pts ----- Black = 0pts</p>
+        <canvas class="center" style="border: 3px solid green;" id="canvas" width="600" height="600">Your browser does not support the HTML5 canvas tag.</canvas>
+    </div>
+
+
+	
+	<script>
+		const urlMovePlayer = 'http://localhost:8080/movePlayer';
+		const urlMoveAi = 'http://localhost:8080/moveAi';
+		var board = [ //top down
+            ['-','W','-','W','-','W','-','W'],
+            ['W','-','W','-','W','-','W','-'],
+            ['-','W','-','W','-','W','-','W'],
+            ['-','-','-','-','-','-','-','-'],
+            ['-','-','-','-','-','-','-','-'],
+            ['B','-','B','-','B','-','B','-'],
+            ['-','B','-','B','-','B','-','B'],
+            ['B','-','B','-','B','-','B','-']
+        ];
+		var dim = 600/8;
+		var activePiece = null;
+		var response = null;
+		var canvas;
+	    var ctx;
+	    var aiTurn = 'W';
+	    var turn = 'B';
+		
+		function postBoard(pos) {
+			$.post(
+				urlMovePlayer, 
+				pos, 
+				function(data){
+					response = data.response;
+					if(response == "success") {
+						activePiece = null;
+						board = data.boardData;
+						turn =  getOtherPlayerColor(turn);
+						doAiMove(pos);
+					}
+					else {
+						console.log("nothing changed");
+					}
+					drawTable();
+                    drawPieces();
+				}
+           	);
+		}
+		
+		function doAiMove(pos) {
+			console.log("AI TIME! does his move");
+			//in response switch turn
+			$.post(
+				urlMoveAi, 
+				pos, 
+				function(data){
+					board = data.boardData;
+					turn = getOtherPlayerColor(turn);
+					drawTable();
+                    drawPieces();
+				}
+           	);
+		}
+		
+		window.onload = function() {
+            canvas = document.getElementById("canvas");
+            ctx = canvas.getContext("2d");
+            drawTable();
+            drawPieces();
+
+            //load checkers board from backend TODO this helps in event someone refreshes page!
+            
+            canvas.addEventListener('mousedown', function(e) {
+            	if(turn != aiTurn) {
+            		  const posDex = getCursorPosition(canvas, e);
+                      
+                      if(activePiece == null) {
+                          let c = board[posDex[1]][posDex[0]];
+                          if(c.length == 2) {
+                              c = c.charAt(1); //in event its a King piece, remove the K part
+                          }
+                          if((c == 'W' || c == 'B') && turn == c) {
+                              activePiece = posDex;
+                          }
+                      }
+                      else {
+                          //attempt to move piece //TODO
+                          var posToSend =  { x1 : activePiece[0], y1 : activePiece[1], x2: posDex[0], y2: posDex[1] };
+                          postBoard(posToSend);
+                          
+                           if((activePiece[0] == posDex[0] && activePiece[1] == posDex[1]) ) {
+                              activePiece = null; //click same pos removes it as active piece, but turn is does not change
+                          }
+                      }
+    			}
+            	drawTable();
+                drawPieces();
+            });
+        };
+        
+        function getCursorPosition(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const xIndex = Math.floor(x / dim);
+            const yIndex = Math.floor(y / dim);
+            return [xIndex, yIndex];
+         }
+		
+        function getOtherPlayerColor(currentPlayerColor) {
+            return currentPlayerColor == 'W' ? 'B' : 'W';
+        }
+        
+		 //doc js stuff
+        function drawTable() {
+            let white = true;
+            for(let i=0; i<8; i++) {
+                white = i%2 == 0 ? true : false;
+                for(let j=0; j<8; j++) {
+
+                    if(white) {
+                        ctx.fillStyle = "white";
+                        white = false;
+                    }
+                    else {
+                        ctx.fillStyle = "black";
+                        white = true;
+                    }
+
+                    ctx.fillRect(i*dim , j * dim, dim, dim);
+                }
+            }
+            ctx.fillStyle = "grey";
+            ctx.strokeRect(0, 0, 600, 600);
+        }
+
+        function drawPieces() {
+            for(let i=0; i<9; i++) {
+                for(let j=0; j<8; j++) {
+                    let c = board[j][i];
+                    if(c != '' && c != '-') {
+                        
+                        ctx.beginPath();
+                        ctx.arc(i*dim+dim/2 , j * dim+dim/2, dim/3, 0, 2 * Math.PI);
+                        if(c == 'B') {
+                            ctx.fillStyle = "#888894"
+                            if(activePiece != null && activePiece[1] == j && activePiece[0] ==i) {
+                                ctx.fillStyle = "#388894"
+                            }
+                        }
+                        else if(c == 'KB') {
+                            ctx.fillStyle = "#841194"
+                            if(activePiece != null && activePiece[1] == j && activePiece[0] ==i) {
+                                ctx.fillStyle = "#375522"
+                            }
+                        }
+                        else if(c == 'W') {
+                            ctx.fillStyle = "#d8d8e8";
+                            if(activePiece != null && activePiece[1] == j && activePiece[0] ==i) {
+                                ctx.fillStyle = "#e8d8e8"
+                            }
+                        }
+                        else if(c == 'KW') {
+                            ctx.fillStyle = "#e7d2e8";
+                            if(activePiece != null && activePiece[1] == j && activePiece[0] ==i) {
+                                ctx.fillStyle = "#d4d5a8"
+                            }
+                        }
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function getCursorPosition(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const xIndex = Math.floor(x / dim);
+            const yIndex = Math.floor(y / dim);
+            return [xIndex, yIndex];
+         }
+
+	</script>
+
+
+</body>
+
+</html>
