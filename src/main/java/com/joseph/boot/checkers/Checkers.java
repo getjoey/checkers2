@@ -7,26 +7,39 @@ import java.util.List;
 public class Checkers {
 
 
-	private String[][] board = {
+	private final int MAX_DEPTH = 6;
+	
+	private String[][] initialBoard = {
 			{"-","W","-","W","-","W","-","W"},
 			{"W","-","W","-","W","-","W","-"},
 			{"-","W","-","W","-","W","-","W"},
 			{"-","-","-","-","-","-","-","-"},
 			{"-","-","-","-","-","-","-","-"},
-			{"B","-","KB","-","B","-","B","-"},
+			{"B","-","B","-","B","-","B","-"},
 			{"-","B","-","B","-","B","-","B"},
 			{"B","-","B","-","B","-","B","-"}};
-
-	private ArrayList<Integer> atePiece = new ArrayList<>();
+	
+	private String[][] board;
+	private Move aiMoveToDo = null;	
+	
+	private List<Move> movesItCanDo;
 	
 	public Checkers() {
-
+		resetBoard();
 	}
 
+	public void resetBoard() {
+		board = new String[8][8];
+	    for(int i=0; i<8; i++) {
+	    	for(int j=0; j<8; j++) {
+	    		board[i][j] = initialBoard[i][j];
+		    }	
+	    }
+	}
+	
 	public String[][] getBoard() {
 		return board;
 	}
-
 
 	public void print() {
 		for(int i=0; i<8; i++) {
@@ -39,32 +52,197 @@ public class Checkers {
 	}
 
 
-
 	public boolean add(int x1, int y1, int x2, int y2) {
 		Move move = isMoveValid(x1,y1,x2,y2,board);
+		System.out.println("Doing a move! "+move);
 		if(move == null) {
 			System.out.println("no good");
 			return false;
 		}
-		board[y2][x2] = board[y1][x1];
+		String piece = board[y1][x1];
+		if(piece.equals("W") && y2 == 7) {
+			piece = "KW";
+		}
+		else if(piece.equals("B") && y2 == 0) {
+			piece = "KB";
+		}
+		board[y2][x2] = piece;
 		board[y1][x1] = "-";
 		
 		if(move.getA1() != null && move.getA2() != null) {
 			board[move.a2][move.a1] = "-";
 		}
-
+		
+		String color = piece;
+		if(color.length() == 2) {
+			color = ""+color.charAt(1);
+		}
+		
+		movesItCanDo = shouldGoAgain(board, move, color);
 		return true;
 	}
 	
-	public void doAiTurn() {
-		List<Move> allMoves = getAllMoves(board, "W");
-		if(allMoves.size() > 0) {
-			System.out.println("Doing a move!");
-			Move move = allMoves.get(0);
-			add(move.x1,move.y1, move.x2, move.y2);
+	
+	public List<Move> shouldGoAgain(String[][] boardToUse, Move moveJustDid, String turnColor) {
+		List<Move> moveList = getAllMoves(boardToUse, turnColor);
+		List<Move> movesItCanDo = new ArrayList<>();
+		
+		for(Move move : moveList) {
+			if(moveJustDid.getA1() != null && moveJustDid.x2 == move.x1 && moveJustDid.y2 == move.y1 && move.getA1() != null) {
+				movesItCanDo.add(move);
+			}
+		}
+		
+		return movesItCanDo;
+	}
+	
+	public void doBestMoveAI() {
+		
+	    String[][] boardCopy = new String[8][8];
+	    for(int i=0; i<8; i++) {
+	    	for(int j=0; j<8; j++) {
+	    		boardCopy[i][j] = board[i][j];
+		    }	
+	    }
+	    
+	    //initial minimax to decide starting move
+	    miniMax(boardCopy, 0, true,  0, 0, "W");
+	    
+	    if(aiMoveToDo != null) {
+	    	add(aiMoveToDo.x1,aiMoveToDo.y1, aiMoveToDo.x2,aiMoveToDo.y2);
+	    	aiMoveToDo = null;
+	    }
+	    else {
+	    	System.out.println("NO MOVE FOR AI!!!");
+	    }
+	}
+	
+	public String getOtherPlayerTurn(String currentPlayerTurn) {
+		if(currentPlayerTurn.equals("W")) {
+			return "B";
+		}
+		return "W";
+	}
+	
+	public int miniMax(String[][] boardCopy, int depth, boolean isMaximizingPlayer, int alpha, int beta, String turnColor) {
+		
+		if(depth == MAX_DEPTH) { //or isgameComplete
+			//return board evaluation
+			int result = evaluateBoard(boardCopy);
+			return result;
+		}
+		
+		if(isMaximizingPlayer) {
+			int maxEval = -1000000;
+			List<Move> moveList = getAllMoves(boardCopy, turnColor);
+			
+			for(Move move : moveList) {
+				String pieceType = boardCopy[move.y1][move.x1];
+				String color = pieceType.length() == 2 ? ""+pieceType.charAt(1) : pieceType;
+				String eatenPieceType = null;
+				boolean wasTurnedKing = false;
+				
+				//do move
+				if(pieceType.equals("W") && move.y2 == 7) {
+					pieceType = "KW";
+					wasTurnedKing = true;
+				}
+				else if(pieceType.equals("B") && move.y2 == 0) {
+					pieceType = "KB";
+					wasTurnedKing = true;
+				}
+				
+				
+				boardCopy[move.y1][move.x1] = "-"; //piece has moved and no longer there.
+				boardCopy[move.y2][move.x2] = pieceType; //piece is now here.
+				if (move.getA1() != null && move.getA2() != null) {
+					eatenPieceType = boardCopy[move.getA2()][move.getA1()];
+					boardCopy[move.getA2()][move.getA1()] = "-";// remove eaten piece
+				}
+				
+				//List<Move> movesItCanDoAgain = shouldGoAgain(board, move, color);
+				
+				
+				int score = miniMax(boardCopy, depth +1, false, alpha, beta, getOtherPlayerTurn(turnColor));
+				
+				//undo move
+				if(wasTurnedKing) {
+					pieceType = ""+pieceType.charAt(1);
+				}
+				boardCopy[move.y1][move.x1] = pieceType; 
+				boardCopy[move.y2][move.x2] = "-"; 
+				if(eatenPieceType != null) {
+					boardCopy[move.getA2()][move.getA1()] = eatenPieceType;
+				}
+				
+				//conclude
+				if(score > maxEval) {
+					maxEval = score;
+					if(depth == 0) {
+						aiMoveToDo = move;
+					}
+				}
+				 if (alpha > maxEval) {
+                     alpha = maxEval;
+                 }
+                 if (beta <= alpha) {
+                     break;
+                 }
+			}
+			return maxEval;
 		}
 		else {
-			System.out.println("no moves left");
+			//minimizingPlayer
+			
+			int minEval = 1000000;
+			List<Move> moveList = getAllMoves(boardCopy, turnColor);
+			
+			for(Move move : moveList) {
+				String pieceType = boardCopy[move.y1][move.x1];
+				String eatenPieceType = null;
+				boolean wasTurnedKing = false;
+				
+				//do move
+				if(pieceType.equals("W") && move.y2 == 7) {
+					pieceType = "KW";
+					wasTurnedKing = true;
+				}
+				else if(pieceType.equals("B") && move.y2 == 0) {
+					pieceType = "KB";
+					wasTurnedKing = true;
+				}
+				
+				boardCopy[move.y1][move.x1] = "-"; //piece has moved and no longer there.
+				boardCopy[move.y2][move.x2] = pieceType; //piece is now here.
+				if (move.getA1() != null && move.getA2() != null) {
+					eatenPieceType = boardCopy[move.getA2()][move.getA1()];
+					boardCopy[move.getA2()][move.getA1()] = "-";// remove eaten piece
+				}
+				
+				int score = miniMax(boardCopy, depth +1, true, alpha, beta, getOtherPlayerTurn(turnColor));
+				
+				//undo move
+				if(wasTurnedKing) {
+					pieceType = ""+pieceType.charAt(1);
+				}
+				boardCopy[move.y1][move.x1] = pieceType; 
+				boardCopy[move.y2][move.x2] = "-"; 
+				if(eatenPieceType != null) {
+					boardCopy[move.getA2()][move.getA1()] = eatenPieceType;
+				}
+				
+				//conclude
+				if(score < minEval) {
+					minEval = score;
+				}
+				if (beta < minEval) {
+					beta = minEval;
+				}
+				if (beta <= alpha) {
+					break;
+				}
+			}
+			return minEval;
 		}
 	}
 
@@ -100,21 +278,17 @@ public class Checkers {
 				//check space in between
 				if(boardToUse[yMid][xMid].equals("B")) {
 					return new Move(x1,y1,x2,y2,xMid,yMid);
-					//return [true, "ate", [yMid, xMid], valueGainedFromRegularPiece];
 				}
 				else if(boardToUse[yMid][xMid].equals("KB")) {
 					return new Move(x1,y1,x2,y2,xMid,yMid);
-					//return [true, "ate", [yMid, xMid], valueGainedFromKingPiece];
 				}
 			}
 			else if(turnColor.equals("B") && yDif == -2 && Math.abs(xDif) == 2) {
 				if(boardToUse[yMid][xMid].equals("W")) {
 					return new Move(x1,y1,x2,y2,xMid,yMid);
-					//return [true, "ate", [yMid, xMid], valueGainedFromRegularPiece];
 				}
 				else if(boardToUse[yMid][xMid].equals("KW")) {
 					return new Move(x1,y1,x2,y2,xMid,yMid);
-					//return [true, "ate", [yMid, xMid], valueGainedFromKingPiece];
 				}
 			}
 		}
@@ -123,7 +297,6 @@ public class Checkers {
 
 			if(Math.abs(yDif) == 1 && Math.abs(xDif) == 1) {
 				return new Move(x1,y1,x2,y2);
-				//return [true, "", null, 0];
 			}
 			//killing move check
 			if(Math.abs(yDif) == 2 && Math.abs(xDif) == 2) {
@@ -179,17 +352,15 @@ public class Checkers {
 		public Integer getA2() {
 			return a2;
 		}
-		
-		
+		@Override
+		public String toString() {
+			return "Move [x1=" + x1 + ", y1=" + y1 + ", x2=" + x2 + ", y2=" + y2 + ", a1=" + a1 + ", a2=" + a2 + "]";
+		}
 		
 	}
 	
 	 public List<Move> getAllMoves(String[][] boardToUse, String colorToCheck) {
          List<Move> moveList = new ArrayList<>();
-         
-         //go through all pieces.. if this is one of your pieces. find every move it can do.
-         //if its a move that eats +1, if king +3; otherwise 0.
-         //TODO
          
          //a single move will contain its [currentPos,[all possible positions it can go to]]
          for(int i=0; i<8; i++) {
@@ -281,6 +452,31 @@ public class Checkers {
          return moveList;
      }
 
+	 
+	 //returns how many more pieces white has, king coutns as 2.
+	 public int evaluateBoard(String[][] boardToEvaluate) {
+         int piecesW = 0;
+         int piecesB = 0;
+         
+         for(int i=0; i<8; i++) {
+             for(int j=0; j<8; j++) {
+
+                 String piece = boardToEvaluate[i][j];
+                 int mod = 0;
+                 if(piece.length() == 2) { //king
+                     piece = ""+piece.charAt(1);
+                     mod+=1;
+                 }
+                 if(piece.equals("W")) {
+                     piecesW = piecesW + 1 + mod;
+                 }
+                 else if(piece.equals("B")){
+                     piecesB = piecesB + 1 + mod;
+                 }
+             }
+         }
+         return piecesW-piecesB;
+     }
 
 
 

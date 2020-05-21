@@ -6,11 +6,10 @@
 </head>
 
 <body>
-
-
 	<div style="text-align: center;">
         <p id="turn" style="font-size : 30px;">Blacks Turn</p>
         <p id="score" style="font-size : 24px;">White = 0pts ----- Black = 0pts</p>
+        <button id="newGame" onclick="newGame()">New Game</button>
         <canvas class="center" style="border: 3px solid green;" id="canvas" width="600" height="600">Your browser does not support the HTML5 canvas tag.</canvas>
     </div>
 
@@ -19,6 +18,9 @@
 	<script>
 		const urlMovePlayer = 'http://localhost:8080/movePlayer';
 		const urlMoveAi = 'http://localhost:8080/moveAi';
+		const urlGetBoard = 'http://localhost:8080/getBoard';
+		const urlResetBoard = 'http://localhost:8080/resetBoard';
+		
 		var board = [ //top down
             ['-','W','-','W','-','W','-','W'],
             ['W','-','W','-','W','-','W','-'],
@@ -34,6 +36,7 @@
 		var response = null;
 		var canvas;
 	    var ctx;
+	    var newGameButton;
 	    var aiTurn = 'W';
 	    var turn = 'B';
 		
@@ -58,19 +61,35 @@
            	);
 		}
 		
+		function getBoard() {
+			$.get(urlGetBoard, 
+				function(data) {
+					board = data.boardData;
+					drawTable();
+	                drawPieces();
+			});
+		}
+		
 		function doAiMove(pos) {
-			console.log("AI TIME! does his move");
-			//in response switch turn
-			$.post(
-				urlMoveAi, 
-				pos, 
+			$.get(
+				urlMoveAi,  
 				function(data){
 					board = data.boardData;
 					turn = getOtherPlayerColor(turn);
 					drawTable();
                     drawPieces();
-				}
-           	);
+			});
+		}
+		
+		function newGame() {
+			$.get(
+				urlResetBoard,  
+				function(data){
+					board = data.boardData;
+					turn = 'B';
+					drawTable();
+                    drawPieces();
+			});
 		}
 		
 		window.onload = function() {
@@ -78,9 +97,9 @@
             ctx = canvas.getContext("2d");
             drawTable();
             drawPieces();
+            getBoard();
 
             //load checkers board from backend TODO this helps in event someone refreshes page!
-            
             canvas.addEventListener('mousedown', function(e) {
             	if(turn != aiTurn) {
             		  const posDex = getCursorPosition(canvas, e);

@@ -46,15 +46,34 @@ public class CheckersController {
 		return data.toString();
 	}
 	
-	@PostMapping(value = "/moveAi", produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/moveAi", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public String doAiMove(@RequestBody String payload) throws Exception {
+	public String doAiMove() {
 		
-		checkers.doAiTurn();
+		checkers.doBestMoveAI();
 		JSONObject data = new JSONObject();
 		data.put("boardData", checkers.getBoard());
-
+		
 		return data.toString();
 	}
+	
+	@RequestMapping(value = "/getBoard", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public String getBoard() {
+		JSONObject data = new JSONObject();
+		data.put("boardData", checkers.getBoard());
+		return data.toString();
+	}
+	
+	@RequestMapping(value = "/resetBoard", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public String resetBoard() {
+		JSONObject data = new JSONObject();
+		checkers.resetBoard();
+		data.put("boardData", checkers.getBoard());
+		return data.toString();
+	}
+	
+	
 
 }
